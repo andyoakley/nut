@@ -71,7 +71,7 @@ SERIAL_USB_DRIVERLIST = \
 	nutdrv_qx
 NEONXML_DRIVERLIST = netxml-ups
 MACOSX_DRIVERLIST = macosx-ups
-MODBUS_DRIVERLIST = phoenixcontact_modbus generic_modbus huawei-ups2000 socomec_jbus adelsystem_cbi apc_modbus
+MODBUS_DRIVERLIST = phoenixcontact_modbus generic_modbus victron_modbus huawei-ups2000 socomec_jbus adelsystem_cbi apc_modbus
 LINUX_I2C_DRIVERLIST = asem pijuice hwmon_ina219
 POWERMAN_DRIVERLIST = powerman-pdu
 IPMI_DRIVERLIST = nut-ipmipsu
@@ -332,6 +332,8 @@ generic_modbus_SOURCES = generic_modbus.c
 generic_modbus_LDADD = $(LDADD_DRIVERS) $(LIBMODBUS_LIBS)
 adelsystem_cbi_SOURCES = adelsystem_cbi.c
 adelsystem_cbi_LDADD = $(LDADD_DRIVERS) $(LIBMODBUS_LIBS)
+victron_modbus_SOURCES = victron_modbus.c
+victron_modbus_LDADD = $(LDADD_DRIVERS) $(LIBMODBUS_LIBS)
 
 # APC Modbus driver (with support of modbus over different media)
 # Note that a version of libmodbus built with USB support is also needed
@@ -414,7 +416,7 @@ dist_noinst_HEADERS = \
  xppc-mib.h huawei-mib.h eaton-ats16-nmc-mib.h eaton-ats16-nm2-mib.h apc-ats-mib.h raritan-px2-mib.h eaton-ats30-mib.h \
  apc-pdu-mib.h apc-epdu-mib.h ever-hid.h eaton-pdu-genesis2-mib.h eaton-pdu-marlin-mib.h eaton-pdu-marlin-helpers.h \
  eaton-pdu-pulizzi-mib.h eaton-pdu-revelation-mib.h emerson-avocent-pdu-mib.h eaton-ups-pwnm2-mib.h eaton-ups-pxg-mib.h legrand-hid.h \
- hpe-pdu-mib.h hpe-pdu3-cis-mib.h powervar-hid.h delta_ups-hid.h generic_modbus.h salicru-hid.h adelsystem_cbi.h eaton-pdu-nlogic-mib.h ydn23.h
+ hpe-pdu-mib.h hpe-pdu3-cis-mib.h powervar-hid.h delta_ups-hid.h generic_modbus.h victron_modbus.h salicru-hid.h adelsystem_cbi.h eaton-pdu-nlogic-mib.h ydn23.h
 
 # Define a dummy library so that Automake builds rules for the
 # corresponding object files.  This library is not actually built,
