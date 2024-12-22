@@ -54,12 +54,6 @@ void modbus_reconnect(void);
 /* modbus register read function */
 int register_read(modbus_t *mb, int addr, regtype_t type, void *data);
 
-/* read value from register */
-int get_register_int(int addr);
-
-/* count the time elapsed since start */
-long time_elapsed(struct timeval *start);
-
 /* driver description structure */
 upsdrv_info_t upsdrv_info = {
 	DRIVER_NAME,
@@ -159,57 +153,71 @@ void upsdrv_initups(void)
 void upsdrv_updateinfo(void)
 {
 	int rval;
+	int reg_val;
 	errcnt = 0;
 
 	upsdebugx(2, "upsdrv_updateinfo");
 	status_init();      /* initialize ups.status update */
 	alarm_init();       /* initialize ups.alarm update */
-
+	
 	/* CHARGER STATUS */
-	rval = get_register_int(BATTERY_STATE);
-	upsdebugx(2, "battery state %d", rval);
-	switch (rval) {
-		case 0:
-			dstate_setinfo("battery.charger.status", "resting");
-			break;
-		case 1:
-			dstate_setinfo("battery.charger.status", "charging");
-			status_set("CHRG");
-			break;
-		case 2:
-			dstate_setinfo("battery.charger.status", "discharging");
-			status_set("DISCHRG");
-			break;
+	rval = register_read(mbctx, BATTERY_STATE, HOLDING, &reg_val);
+	if (rval > -1) {
+		upsdebugx(2, "battery state %d", reg_val);
+		switch (reg_val) {
+			case 0:
+				dstate_setinfo("battery.charger.status", "resting");
+				break;
+			case 1:
+				dstate_setinfo("battery.charger.status", "charging");
+				status_set("CHRG");
+				break;
+			case 2:
+				dstate_setinfo("battery.charger.status", "discharging");
+				status_set("DISCHRG");
+				break;
+		}
+	}
+	else {
+		upsdebugx(2, "Could not read charger status");
+		errcnt++;
 	}
 	
 	/* ACTIVE SOURCE */
-	rval = get_register_int(ACTIVE_SOURCE);
-	upsdebugx(2, "Active source %d", rval);
-	switch (rval) {
-		case 0:
-		case 1:
-		case 2:
-		case 3:
-			status_set("OL");
-			break;
-		case 240:
-			status_set("OB");
-			break;
+	rval = register_read(mbctx, ACTIVE_SOURCE, HOLDING, &reg_val);
+	if (rval > -1) {
+		upsdebugx(2, "Active source %d", reg_val);
+		switch (reg_val) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+				status_set("OL");
+				break;
+			case 240:
+				status_set("OB");
+				break;
+		}
+	}
+	else {
+		upsdebugx(2, "Could not read active source");
+		errcnt++;
 	}
 
 	/* STATE OF CHARGE */
-	rval = get_register_int(STATE_OF_CHARGE);
-	upsdebugx(2, "State of charge %d %%", rval);
-	dstate_setinfo("battery.charge", "%d", rval);
-	if (rval < 20) {
-		status_set("LB");
-		alarm_set("Low Battery");
+	rval = register_read(mbctx, STATE_OF_CHARGE, HOLDING, &reg_val);
+	if (rval > -1) {
+		upsdebugx(2, "State of charge %d %%", reg_val);
+		dstate_setinfo("battery.charge", "%d", reg_val);
+		if (reg_val < 20) {
+			status_set("LB");
+			alarm_set("Low Battery");
+		}
 	}
-
-	/* AC input */
-	rval = get_register_int(AC_L1_W);
-	upsdebugx(2, "AC L1 %d W", rval);
-	dstate_setinfo("input.realpower", "%d", rval);
+	else {
+		upsdebugx(2, "Could not read state of charge");
+		errcnt++;
+	}
 
 	/* check for communication errors */
 	if (errcnt == 0) {
@@ -320,7 +328,7 @@ int register_read(modbus_t *mb, int addr, regtype_t type, void *data)
 		);
 
 		/* on BROKEN PIPE error try to reconnect */
-		if (errno == EPIPE) {
+		if (errno == EPIPE || errno == EBADF || errno == EMBBADDATA || errno == ETIMEDOUT) {
 			upsdebugx(2, "register_read: error(%s)", modbus_strerror(errno));
 			modbus_reconnect();
 		}
@@ -328,47 +336,6 @@ int register_read(modbus_t *mb, int addr, regtype_t type, void *data)
 	upsdebugx(3, "register addr: 0x%x, register type: %d read: %u",addr, type, *(unsigned int *)data);
 	return rval;
 }
-
-/* returns the time elapsed since start in milliseconds */
-long time_elapsed(struct timeval *start)
-{
-	long rval;
-	struct timeval end;
-
-	rval = gettimeofday(&end, NULL);
-	if (rval < 0) {
-		upslog_with_errno(LOG_ERR, "time_elapsed");
-	}
-	if (start->tv_usec < end.tv_usec) {
-		suseconds_t nsec = (end.tv_usec - start->tv_usec) / 1000000 + 1;
-		end.tv_usec -= 1000000 * nsec;
-		end.tv_sec += nsec;
-	}
-	if (start->tv_usec - end.tv_usec > 1000000) {
-		suseconds_t nsec = (start->tv_usec - end.tv_usec) / 1000000;
-		end.tv_usec += 1000000 * nsec;
-		end.tv_sec -= nsec;
-	}
-	rval = (end.tv_sec - start->tv_sec) * 1000 + (end.tv_usec - start->tv_usec) / 1000;
-
-	return rval;
-}
-
-
-/* read value from HOLING */
-int get_register_int(int addr) 
-{
-	int rval;
-	int reg_val;
-
-	rval = register_read(mbctx, addr, HOLDING, &reg_val);
-	if (rval > -1) {
-		rval = reg_val;
-	}
-	upsdebugx(3, "get_register_int: state: %d", reg_val);
-	return rval;
-}
-
 
 
 /* get driver configuration parameters */
@@ -450,7 +417,7 @@ void modbus_reconnect(void)
 	}
 
 	/* connect to modbus device  */
-	if (modbus_connect(mbctx) == -1) {
+	if (modbus_connect(mbctx) == -1 && errno != EINPROGRESS) {
 		modbus_free(mbctx);
 		fatalx(EXIT_FAILURE, "modbus_connect: unable to connect: %s", modbus_strerror(errno));
 	}
