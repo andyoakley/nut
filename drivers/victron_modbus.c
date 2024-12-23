@@ -189,12 +189,23 @@ void upsdrv_updateinfo(void)
 		upsdebugx(2, "Active source %d", reg_val);
 		switch (reg_val) {
 			case 0:
+				dstate_setinfo("input.source", "unknown");
+				status_set("OL");
+				break;
 			case 1:
+				dstate_setinfo("input.source", "grid");
+				status_set("OL");
+				break;
 			case 2:
+				dstate_setinfo("input.source", "generator");
+				status_set("OL");
+				break;
 			case 3:
+				dstate_setinfo("input.source", "shore");
 				status_set("OL");
 				break;
 			case 240:
+				dstate_setinfo("input.source", "battery");
 				status_set("OB");
 				break;
 		}
