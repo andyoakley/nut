@@ -42,6 +42,8 @@ static uint32_t mod_resp_to_us = MODRESP_TIMEOUT_us;       /* set the modbus res
 static uint32_t mod_byte_to_s = MODBYTE_TIMEOUT_s;         /* set the modbus byte time out (us) */
 static uint32_t mod_byte_to_us = MODBYTE_TIMEOUT_us;       /* set the modbus byte time out (us) */
 
+static int last_soc = -1;		                           /* previous SOC, used to debounce spurious zero readings */
+
 /* get config vars set by -x or defined in ups.conf driver section */
 void get_config_vars(void);
 
@@ -220,10 +222,18 @@ void upsdrv_updateinfo(void)
 	if (rval > -1) {
 		upsdebugx(2, "State of charge %d %%", reg_val);
 		dstate_setinfo("battery.charge", "%d", reg_val);
-		if (reg_val < 20) {
+		if (reg_val == 0 && last_soc > 20) {
+			/* Occasional zero readings can be spurious.
+			 * Mark this update as stale and wait for two in a row before triggering a low battery warning
+			 */
+			upsdebugx(2, "State of charge dropped to zero unexpectedly");
+			errcnt++;
+		}
+		else if (reg_val < 20) {
 			status_set("LB");
 			alarm_set("Low Battery");
 		}
+		last_soc = reg_val;
 	}
 	else {
 		upsdebugx(2, "Could not read state of charge");
